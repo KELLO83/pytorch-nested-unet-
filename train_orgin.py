@@ -275,6 +275,7 @@ def main():
         mask_ext=config['mask_ext'],
         num_classes=config['num_classes'],
         transform=train_transform)
+    
     val_dataset = Dataset(
         img_ids=val_img_ids,
         img_dir=os.path.join('inputs', config['dataset'], 'images'),

@@ -16,13 +16,13 @@ from sklearn.model_selection import train_test_split
 from torch.optim import lr_scheduler
 from tqdm import tqdm
 import logging
+import albumentations as A
 
 import archs
 import losses
-from dataset import Dataset
 from metrics import iou_score
 from utils import AverageMeter, str2bool
-from custom_utils.dataset import CustomDataset
+from dataset import Dataset , CustomDataset
 from torch.utils.tensorboard import SummaryWriter
 
 ARCH_NAMES = archs.__all__
@@ -34,15 +34,15 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     #pretrained
-    parser.add_argument('--pretrained' , default='models/data/CrackTree_IMAGE_NestedUNet_woDS/model.pth' , help='pretrain path')
+    parser.add_argument('--pretrained' , default='weight/model.pt' , help='pretrain path')
 
     parser.add_argument('--name', default=None,
                         help='model name: (default: arch+timestamp)')
     parser.add_argument('--epochs', default=50, type=int, metavar='N',
                         help='number of total epochs to run')
-    parser.add_argument('-b', '--batch_size', default=8, type=int,
+    parser.add_argument('-b', '--batch_size', default=4, type=int,
                         metavar='N', help='mini-batch size (default: 16)')
-    parser.add_argument('--save-dir',default='weight',help='pytorch model save directory')
+    parser.add_argument('--save-dir',default='weight/one',help='pytorch model save directory')
     
     # model
     parser.add_argument('--arch', '-a', metavar='ARCH', default='NestedUNet',
@@ -68,11 +68,11 @@ def parse_args():
                         ' (default: BCEDiceLoss)')
     
     # dataset
-    parser.add_argument('--dataset', default='data/CrackTree_IMAGE',
+    parser.add_argument('--dataset', default='CRKWH100_TEST',
                         help='dataset name')
-    parser.add_argument('--img_ext', default='jpg',
+    parser.add_argument('--img_ext', default='png',
                         help='image file extension')
-    parser.add_argument('--mask_ext', default='.bmp',
+    parser.add_argument('--mask_ext', default='bmp',
                         help='mask file extension')
 
     # optimizer
@@ -81,7 +81,7 @@ def parse_args():
                         help='loss: ' +
                         ' | '.join(['Adam', 'SGD']) +
                         ' (default: Adam)')
-    parser.add_argument('--lr', '--learning_rate', default=1e-2, type=float,
+    parser.add_argument('--lr', '--learning_rate', default=1e-3, type=float,
                         metavar='LR', help='initial learning rate')
     parser.add_argument('--momentum', default=0.9, type=float,
                         help='momentum')
@@ -255,59 +255,97 @@ def main():
     if config['scheduler'] == 'CosineAnnealingLR':
         scheduler = lr_scheduler.CosineAnnealingLR(
             optimizer, T_max=config['epochs'], eta_min=config['min_lr'])
+        
     elif config['scheduler'] == 'ReduceLROnPlateau':
         scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, factor=config['factor'], patience=config['patience'],
-                                                   verbose=1, min_lr=config['min_lr'])
+                                                   verbose=True, min_lr=config['min_lr'])
     elif config['scheduler'] == 'MultiStepLR':
         scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[int(e) for e in config['milestones'].split(',')], gamma=config['gamma'])
+        
     elif config['scheduler'] == 'ConstantLR':   
         scheduler = None
+        
     else:
         raise NotImplementedError
 
+    img_ids = glob(os.path.join('inputs', config['dataset'], 'images', '*' + config['img_ext']))
+    img_ids = [os.path.splitext(os.path.basename(p))[0] for p in img_ids]
 
-    train_datset = CustomDataset(
-        image_dir=config['dataset'],
-        mask_dir = config['dataset'].replace('IMAGE','MASK'),
-        image_type = config['img_ext'],
-        is_train=True,
-    )
+    train_img_ids, val_img_ids = train_test_split(img_ids, test_size=0.2, random_state=41)
 
-    val_dataset = CustomDataset(
-        image_dir = os.path.join(config['dataset'],'val'),
-        mask_dir = os.path.join(config['dataset'].replace('IMAGE','MASK') , 'val'),
-        image_type= config['img_ext'],
-        is_train = True,
-    )
+    train_transform = Compose([
+        A.RandomRotate90(),
+        A.Flip(),
+        OneOf([
+            transforms.HueSaturationValue(),
+            transforms.RandomBrightnessContrast(),
+        ], p=0),
+        A.Resize(config['input_h'], config['input_w']),
+        transforms.Normalize(),
+    ])
+
+    val_transform = Compose([
+        A.Resize(config['input_h'], config['input_w']),
+        transforms.Normalize(),
+    ])
+
+    train_dataset = Dataset(
+        img_ids=train_img_ids,
+        img_dir=os.path.join('inputs', config['dataset'], 'images'),
+        mask_dir=os.path.join('inputs', config['dataset'], 'masks'),
+        img_ext=config['img_ext'],
+        mask_ext=config['mask_ext'],
+        num_classes=config['num_classes'],
+        transform=train_transform)
+    
+    
+    iterator_dataset = iter(train_dataset)
+    try:
+        while True:
+            image, mask = next(iterator_dataset)
+            # print(f'Image shape: {image.shape}')
+            # print(f'Mask shape: {mask.shape}')
+    except StopIteration:
+        print("Stop Iteration")
+        
+    val_dataset = Dataset(
+        img_ids=val_img_ids,
+        img_dir=os.path.join('inputs', config['dataset'], 'images'),
+        mask_dir=os.path.join('inputs', config['dataset'], 'masks'),
+        img_ext=config['img_ext'],
+        mask_ext=config['mask_ext'],
+        num_classes=config['num_classes'],
+        transform=val_transform)
+
 
     train_loader = torch.utils.data.DataLoader(
-        train_datset,
+        train_dataset,
         batch_size=config['batch_size'],
         shuffle=True,
         num_workers=config['num_workers'],
         drop_last=True)
     
-    
+
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
         batch_size=config['batch_size'],
         shuffle=False,
         num_workers=config['num_workers'],
         drop_last=False)
-
-    # for k , i in enumerate(train_loader):
-    #     batch = i
-    #     print(batch[0].shape)
-    #     print(batch[1].shape)
-    #     if k == 0 :
-    #         image_ = batch[0]
-    #         label_ = batch[1]
-    #         visualize_batch_cv2(image_ , label_)
-    #     break
+    
+    for k , i in enumerate(train_loader):
+        batch = i
+        print(batch[0].shape)
+        print(batch[1].shape)
+        image_ = batch[0]
+        label_ = batch[1]
+        visualize_batch_cv2(image_ , label_)
+        #break
 
     print("======================DEBUG===========================")
     
     log = OrderedDict([
+        
         ('epoch', []),
         ('lr', []),
         ('loss', []),
@@ -325,6 +363,7 @@ def main():
         # train for one epoch
         train_log = train(config, train_loader, model, criterion, optimizer)
         writer.add_scalar('loss/train',train_log['loss'] , epoch)
+        
         writer.add_scalar('iou/train' , train_log['iou'] , epoch)
         
         # evaluate on validation set
@@ -336,9 +375,9 @@ def main():
             scheduler.step()
         elif config['scheduler'] == 'ReduceLROnPlateau':
             scheduler.step(val_log['loss'])
-
-        print('loss %.4f - iou %.4f - val_loss %.4f - val_iou %.4f'
-              % (train_log['loss'], train_log['iou'], val_log['loss'], val_log['iou']))
+ 
+        print('loss %.4f - iou %.4f - val_loss %.4f - val_iou %.4f Learing Rate %f'
+              % (train_log['loss'], train_log['iou'], val_log['loss'], val_log['iou'] , scheduler.get_last_lr()[0]))
 
         log['epoch'].append(epoch)
         log['lr'].append(config['lr'])
@@ -377,22 +416,39 @@ def visualize_batch_cv2(images, masks):
     for i in range(batch_size):
         image = images[i].permute(1, 2, 0).cpu().numpy() 
         image = (image * 255).astype(np.uint8) 
-        mask = masks[i].squeeze(0).cpu().numpy()  
+        mask = masks[i].permute(1,2,0).cpu().numpy()   
         mask = (mask * 255).astype(np.uint8)  
         
-        print("image shape " ,image.shape)
-        print("mask shape " ,mask.shape)
-
+        denormalize_image = denormalize(images[i] , mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        denormalize_image = denormalize_image.permute(1,2,0).cpu().numpy()
+        denormalize_image = (denormalize_image * 255).astype(np.uint8)
+        
         image_named = "image"
         mask_named = "mask"
+        denormalize_named = "denormalize image"
         cv2.namedWindow(image_named)
         cv2.namedWindow(mask_named)
-        cv2.moveWindow(image_named,1000,1000)
-        cv2.moveWindow(mask_named,1500,1000)        
+        cv2.namedWindow(denormalize_named)
+        cv2.moveWindow(image_named,700,1500)
+        cv2.moveWindow(mask_named,1500,1500)
+        cv2.moveWindow(denormalize_named,2000,1500)        
         cv2.imshow(image_named, image)
         cv2.imshow(mask_named, mask)
+        cv2.imshow(denormalize_named , denormalize_image)
         cv2.waitKey()  
         cv2.destroyAllWindows()
 
+def denormalize(tensor , mean , std):
+    mean = torch.tensor(mean).reshape(-1,1,1)
+    std = torch.tensor(std).reshape(-1,1,1)
+    tensor = tensor.clone() 
+    
+    tensor = tensor * std + mean
+    print("tensor shape : ",tensor.shape)
+    
+    return tensor
+    
+
+    
 if __name__ == '__main__':
     main()

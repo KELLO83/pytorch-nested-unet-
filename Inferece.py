@@ -26,7 +26,7 @@ import numpy as np
 def parse_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--name', default='models/data/CrackTree_IMAGE_NestedUNet_woDS/model.pth',
+    parser.add_argument('--name', default='weight/one/model.pt',
                         help='model name')
     parser.add_argument('--image-path' , default='CRKWH100_TEST', help="test data image path")
     parser.add_argument('--image-extension' , default='.png' , help="image extension")
@@ -61,8 +61,8 @@ def main():
         mask_ext=args.mask_extension,
         num_classes=1)
     
-    # it = iter(val_dataset)
-    # it_test = it.__next__()
+    it = iter(val_dataset)
+    it_test = it.__next__()
     
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
