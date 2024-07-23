@@ -1,0 +1,201 @@
+import os
+import cv2
+import numpy as np
+from PIL import Image
+from torch.utils import data
+import torch.utils
+import torch.utils.data
+
+
+import pdb
+import natsort
+
+import os
+import cv2
+import numpy as np
+from PIL import Image
+from torch.utils import data
+import torch
+
+import pdb
+import natsort
+
+
+from torchvision import transforms as T
+import random
+import torchvision.transforms.functional as TF
+import torch.nn.functional as F
+from torchvision import transforms
+from PIL import Image
+
+class CustomHorizontalFlip:
+    def __call__(self, image, mask):
+        seed = random.randint(0,2**32)
+        random.seed(seed)
+
+        is_rotate = random.random() > 0.5
+        
+        if is_rotate > 0.5:
+            image = TF.hflip(image)
+            mask = TF.hflip(mask)
+    
+        return image , mask
+    
+class CustomRandomRotation:
+    def __call__(self , image , mask):
+        seed = random.randint(0,2**32)
+        
+        random.seed(seed)
+        angle = random.randint(0,90)
+        
+        is_rotate = random.random() > 0.5
+        
+        if is_rotate > 0.3:
+            image = TF.affine(image , angle=angle , translate=(0,0) , scale = 1.0 , shear=(0,0))
+            mask = TF.affine(mask , angle = angle , translate=(0,0) , scale=1.0 , shear=(0,0))
+        
+        return image , mask
+    
+class CustomVerticalFLip:
+    def __call__(self,image,mask):
+        seed = random.randint(0,2**32)
+        
+        random.seed(seed)        
+        is_rotate = random.random() > 0.5
+        
+        if is_rotate > 0.5:
+            image = TF.vflip(image)
+            mask = TF.vflip(mask)
+
+        return image ,  mask
+    
+class CustomCompose:
+    def __init__(self, transforms):
+        self.transforms = transforms
+    
+    def __call__(self, image, mask):
+        for t in self.transforms:
+            image, mask = t(image, mask)
+        return image, mask
+
+class CustomGaussianNoise:
+    def __init__(self, probability=0.3, mean=0.0, std=5.0):
+        self.probability = probability
+        self.mean = mean
+        self.std = std
+
+    def __call__(self, image, mask):
+        if random.random() < self.probability:
+            image = self.add_gaussian_noise(image)
+        return image, mask
+
+    def add_gaussian_noise(self, image):
+        np_image = np.array(image)
+        noise = np.random.normal(self.mean, self.std, np_image.shape)
+        np_noisy_image = np_image + noise
+        np_noisy_image = np.clip(np_noisy_image, 0, 255).astype(np.uint8)
+        return TF.to_pil_image(np_noisy_image)
+
+    
+class CustomDataset(torch.utils.data.Dataset):
+    """CRKWH1000 CRACKLS315 STONE331 CrackTree260"""
+    
+    def __init__(self, 
+                 image_dir: str, 
+                 mask_dir: str, 
+                 image_type: str, 
+                 image_size: int = 512, 
+                 is_stone: bool = False,
+                 is_train : bool = False) -> None:
+        
+        self.image_dir = image_dir # data/CrackTree_IMAGE
+        self.mask_dir = mask_dir
+        self.image_type = image_type
+        self.image_size = image_size
+        self.is_stone = is_stone
+        self.is_train = is_train #  Crack Tree 260 
+        self.to_tensor = T.Compose([
+            T.ToTensor()
+        ])
+        
+        self.image_filenames = self._load_filenames(image_dir, image_type)
+        self.mask_filenames = self._load_filenames(mask_dir, ".bmp")
+        
+        # self.aug1 = CustomGaussianNoise()
+        self.aug = CustomCompose([
+            #CustomGaussianNoise(),
+            CustomHorizontalFlip(),
+            CustomVerticalFLip(),
+            #CustomRandomRotation(),
+        ])
+        
+        if not self.image_filenames:
+            raise FileNotFoundError(f"Files not found in {image_dir}")
+        
+        if not self.mask_filenames:
+            raise FileNotFoundError(f"Files not found in {mask_dir}")
+
+    def _load_filenames(self, dir_path, file_extension):
+        filenames = [os.path.splitext(filename)[0] for filename in os.listdir(dir_path) if filename.endswith(file_extension)]
+        return natsort.natsorted(filenames)
+    
+    def __len__(self) -> int:
+        return len(self.image_filenames)
+
+    def __getitem__(self, idx):
+        filename = self.image_filenames[idx]
+        image_path = os.path.join(self.image_dir, f"{filename}.{self.image_type}")
+        mask_path = os.path.join(self.mask_dir, f"{filename}.bmp")
+        
+        image = Image.open(image_path)
+        mask = Image.open(mask_path)
+    
+        if image is None or mask is None:
+            raise FileNotFoundError("Exception: File not Found")
+        
+        if self.is_train:
+            image = self.__resize_and_pad(image)
+            mask = self.__resize_and_pad(mask)
+            image = self.__convert_channel(image)
+            
+        image, mask = self.aug(image, mask)
+        
+        image = self.to_tensor(image)
+        mask = self.to_tensor(mask)
+                        
+        if self.is_stone:
+            image = image.unsqueeze(dim=0)
+            image = F.interpolate(image, size=(512,512), mode='nearest')
+            image = image.squeeze(dim=0)
+
+        
+        assert image.shape[1:3] == mask.shape[1:3], f"`image`: {image.shape[1:3]} and `mask`: {mask.shape[1:3]} are not the same"
+        
+        return image, mask
+
+    def __resize_and_pad(self , image:Image , size=(512, 512)):
+        image = np.array(image)
+        
+        h, w = image.shape[:2]
+        scale = size[0] / max(h, w)
+        
+        new_w = int(w * scale)
+        new_h = int(h * scale)
+        resized_image = cv2.resize(image, (new_w, new_h))
+        
+        delta_w = size[1] - new_w
+        delta_h = size[0] - new_h
+        top, bottom = delta_h // 2, delta_h - (delta_h // 2)
+        left, right = delta_w // 2, delta_w - (delta_w // 2)
+        
+        color = [0, 0, 0] 
+        padded_image = cv2.copyMakeBorder(resized_image, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)
+        
+        image = Image.fromarray(padded_image)
+        return image
+    
+    def __convert_channel(self, image : Image):
+        """1 chaneel ---->>>>> 3 channel"""
+        image = np.array(image)
+        color_image = cv2.cvtColor(image,cv2.COLOR_GRAY2BGR)
+        return Image.fromarray(color_image)

@@ -1,0 +1,2 @@
+wildcard = '*' + 'png'
+print(wildcard)
