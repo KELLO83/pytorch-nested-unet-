@@ -6,7 +6,11 @@ import torch
 import torch.utils.data
 from PIL import Image
 import torchvision.transforms as T
-from albumentations.augmentations import transforms as A
+import matplotlib.pyplot as plt
+from scipy.stats import norm
+from sklearn.preprocessing import MinMaxScaler , StandardScaler
+
+
 class Dataset(torch.utils.data.Dataset):
 
     def __init__(self, img_ids, img_dir, mask_dir, img_ext, mask_ext, num_classes, transform=None):
@@ -17,7 +21,7 @@ class Dataset(torch.utils.data.Dataset):
         self.mask_ext = mask_ext
         self.num_classes = num_classes
         self.transform = transform
-
+        
     def __len__(self):
         return len(self.img_ids)
 
@@ -35,17 +39,6 @@ class Dataset(torch.utils.data.Dataset):
             augmented = self.transform(image=img, mask=mask)
             img = augmented['image']
             mask = augmented['mask']
-            # image__ = 'img'
-            # mask__ = 'mask'
-            # cv2.namedWindow(image__)
-            # cv2.namedWindow(mask__)
-            # cv2.moveWindow(image__ , 700,1500)
-            # cv2.moveWindow(mask__ , 1300 , 1500)
-            # cv2.imshow('img',img)
-            # cv2.imshow("mask",mask)
-            # cv2.waitKey(0)
-            
-        img = img.astype('float32') / 255
         img = img.transpose(2, 0, 1)
         mask = mask.astype('float32') / 255
         mask = np.expand_dims(mask , axis=0)
@@ -58,6 +51,69 @@ class Dataset(torch.utils.data.Dataset):
         return img, mask 
     
 
+from albumentations.core.composition import Compose
+import albumentations as A
+class Dataset_min_max(torch.utils.data.Dataset):
+
+    def __init__(self, img_ids, img_dir, mask_dir, img_ext, mask_ext, num_classes, transform=None):
+        self.img_ids = img_ids
+        self.img_dir = img_dir
+        self.mask_dir = mask_dir
+        self.img_ext = img_ext
+        self.mask_ext = mask_ext
+        self.num_classes = num_classes
+        self.transform = Compose([
+            A.RandomRotate90(),
+            A.Flip(),
+            A.RandomCrop(height=512,width=512),
+            A.Normalize( mean=[0.535]*3 ,std=[0.153]*3 )
+        ])
+        
+        self.scaled = MinMaxScaler()
+        
+    def __len__(self):
+        return len(self.img_ids)
+
+    def __getitem__(self, idx):
+        img_id = self.img_ids[idx]
+        
+        img = cv2.imread(os.path.join(self.img_dir, img_id +'.' + self.img_ext),cv2.IMREAD_COLOR)
+        mask = cv2.imread(os.path.join(self.mask_dir , img_id +'.'+self.mask_ext),cv2.IMREAD_GRAYSCALE)
+        
+        if img is None or mask is None:
+            raise FileExistsError()
+        
+        
+        if self.transform is not None:
+            augmented = self.transform(image=img, mask=mask)
+            img = augmented['image']
+            mask = augmented['mask']
+            #img = self.__min_max_convert(img)
+
+
+            
+        img = img.transpose(2, 0, 1)
+        mask = mask.astype('float32') / 255
+        mask = np.expand_dims(mask , axis=0)
+        
+        if np.all( img == 0 ): 
+            raise Exception(f"image All Elemnets is None")
+        
+        assert img.shape[1:] == mask.shape[1:], f"not same image shape: img shape {img.shape}, mask shape {mask.shape}"
+        
+        img = torch.Tensor(img)
+        mask = torch.Tensor(mask)
+        return img, mask 
+    
+    def __min_max_convert(self,image:np.array):
+        h,w,c = image.shape
+        
+        image_reshaped = image.reshape(-1,1)
+        min_max_scaler = self.scaled
+        image_scaled = min_max_scaler.fit_transform(image_reshaped)
+        image_scaled = image_scaled.reshape(h,w,c)
+        
+        return image_scaled
 
 class CustomDataset(torch.utils.data.Dataset):
     def __init__(self , img_ids , img_dir , mask_dir , img_ext , mask_ext , num_classes ):
@@ -68,9 +124,7 @@ class CustomDataset(torch.utils.data.Dataset):
         self.img_ext = img_ext
         self.mask_ext = mask_ext
         self.num_classes = num_classes
-        self.transform = T.Compose([
-            A.Normalize(),
-        ])
+
 
         
     def __len__(self):
@@ -83,13 +137,10 @@ class CustomDataset(torch.utils.data.Dataset):
         
         image = Image.open(image_path)
         mask = Image.open(mask_path)
-        
+
         image = self.__resize_and_pad(image)
         mask = self.__resize_and_pad(mask)
-        
-        image = self.transform(image)
-        mask = self.transform(mask)
-        
+
         return image , mask
         
         

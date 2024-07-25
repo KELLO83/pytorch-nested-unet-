@@ -13,7 +13,7 @@ from tqdm import tqdm
 
 import albumentations as A
 import archs
-from dataset import  CustomDataset
+from dataset import  CustomDataset , Dataset , Dataset_min_max
 from metrics import iou_score
 from utils import AverageMeter
 from losses import BCEDiceLoss
@@ -26,43 +26,57 @@ import numpy as np
 def parse_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--name', default='weight/one/model.pt',
+    parser.add_argument('--name', default='weight/Unet/Anorm/CRACKTREE200/model.pt',
                         help='model name')
-    parser.add_argument('--image-path' , default='CRKWH100_TEST', help="test data image path")
-    parser.add_argument('--image-extension' , default='.png' , help="image extension")
-    parser.add_argument('--mask-extension' , default='.bmp',help='mask extension')
+    parser.add_argument('--image-path' , default='CRACKLS315_INPUT', help="test data image path")
+    parser.add_argument('--image-extension' , default='jpg' , help="image extension")
+    parser.add_argument('--mask-extension' , default='bmp',help='mask extension')
     args = parser.parse_args()
 
     return args
 
 
-def main():
+def main(): 
     args = parse_args()
 
-    model = archs.__dict__['NestedUNet'](num_classes=1, input_channels=3, deep_supervision=False)
+    model = archs.__dict__['UNet'](num_classes=1, input_channels=3, deep_supervision=False)
     model = model.cuda()
 
 
-    img_ids = glob(os.path.join('inputs', args.image_path, 'images', '*.png'))
+    img_ids = glob(os.path.join('inputs', args.image_path, 'images', '*' + args.image_extension))
     img_ids = [os.path.splitext(os.path.basename(p))[0] for p in img_ids]
 
-    _ , val_img_ids = train_test_split(img_ids, test_size=0.1, random_state=41)
+    _ , val_img_ids = train_test_split(img_ids, test_size=0.3, random_state=41)
+    
 
-    model.load_state_dict(torch.load(args.name))
+    w_call = torch.load(args.name)
+    model.load_state_dict(w_call['model'].state_dict())
     model.eval()
 
 
-
-    val_dataset = CustomDataset(
+    
+    train_transform = Compose([
+        A.RandomRotate90(),
+        A.Flip(),
+        A.Resize(512,512),
+        A.Normalize(mean=[0.535,0.535,0.535],std=[0.153,0.153,0.153])])
+    
+    val_dataset = Dataset_min_max(
         img_ids=val_img_ids,
         img_dir=os.path.join('inputs',args.image_path, 'images'),
         mask_dir=os.path.join('inputs',args.image_path, 'masks'),
         img_ext=args.image_extension,
         mask_ext=args.mask_extension,
-        num_classes=1)
+        num_classes=1,
+        transform=train_transform)
+
     
-    it = iter(val_dataset)
-    it_test = it.__next__()
+    # it_dataset = iter(val_dataset)
+    # try:
+    #     while True:
+    #         image , mask = next(it_dataset)
+    # except StopIteration:
+    #     print("Stop Iteration")
     
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
@@ -71,18 +85,19 @@ def main():
         num_workers=4,
         drop_last=False)
 
-
+    rand_index = random.randint(0,20)
     for i , target in enumerate(val_loader):
         batch = target
-        if i==1:
+        
+        
+        if i == rand_index:
             image_target = batch[0]
             mask_target = batch[1]
-            #visualize_batch_cv2(image_target , mask_target)
+            visualize_batch_cv2(image_target , mask_target)
             print("image shape :",image_target.shape)
             print("mask shape :",mask_target.shape)
-        
-        
-    avg_meter = AverageMeter()
+            
+
     e_mode = Eval_MODE()
     
     test_loss = e_mode(model , val_loader , device="cuda:0")
@@ -123,9 +138,9 @@ def main():
 def visualize_batch_cv2(images, masks):
     batch_size = images.size(0)
     for i in range(batch_size):
-        image = images[i].permute(1, 2, 0).cpu().numpy() 
+        image = images[i].permute(1,2,0).cpu().numpy() 
         image = (image * 255).astype(np.uint8) 
-        mask = masks[i].squeeze(0).cpu().numpy()  
+        mask = masks[i].permute(1,2,0).cpu().numpy()  
         mask = (mask * 255).astype(np.uint8)  
         
         print("image shape " ,image.shape)
