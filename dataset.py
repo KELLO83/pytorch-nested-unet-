@@ -85,11 +85,6 @@ class Dataset_min_max(torch.utils.data.Dataset):
         
         
         if self.transform is not None:
-            # img_dx = cv2.Sobel(img,cv2.CV_64F, 0 , 1,ksize=3)
-            # img_dy = cv2.Sobel(img,cv2.CV_64F , 1,0 , ksize=3)
-            # img_mag = cv2.magnitude(img_dx , img_dy)
-            # img_mag = np.clip(img_mag , 0 , 255)
-            img = self.__sobel_adative(img)
             img = self.clahe.apply(img) # Histogram Equalization 
             augmented = self.transform(image=img, mask=mask)
             img = augmented['image']
