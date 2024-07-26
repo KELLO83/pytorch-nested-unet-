@@ -54,7 +54,7 @@ class Dataset(torch.utils.data.Dataset):
 from albumentations.core.composition import Compose
 import albumentations as A
 class Dataset_min_max(torch.utils.data.Dataset):
-
+    """ Sklearn MIn max scaler"""
     def __init__(self, img_ids, img_dir, mask_dir, img_ext, mask_ext, num_classes, transform=None):
         self.img_ids = img_ids
         self.img_dir = img_dir
@@ -70,14 +70,14 @@ class Dataset_min_max(torch.utils.data.Dataset):
         ])
         
         self.scaled = MinMaxScaler()
-        
+        self.clahe = cv2.createCLAHE(clipLimit=2.0 , tileGridSize=(8,8))
     def __len__(self):
         return len(self.img_ids)
 
     def __getitem__(self, idx):
         img_id = self.img_ids[idx]
         
-        img = cv2.imread(os.path.join(self.img_dir, img_id +'.' + self.img_ext),cv2.IMREAD_COLOR)
+        img = cv2.imread(os.path.join(self.img_dir, img_id +'.' + self.img_ext),cv2.IMREAD_GRAYSCALE)
         mask = cv2.imread(os.path.join(self.mask_dir , img_id +'.'+self.mask_ext),cv2.IMREAD_GRAYSCALE)
         
         if img is None or mask is None:
@@ -85,11 +85,17 @@ class Dataset_min_max(torch.utils.data.Dataset):
         
         
         if self.transform is not None:
+            # img_dx = cv2.Sobel(img,cv2.CV_64F, 0 , 1,ksize=3)
+            # img_dy = cv2.Sobel(img,cv2.CV_64F , 1,0 , ksize=3)
+            # img_mag = cv2.magnitude(img_dx , img_dy)
+            # img_mag = np.clip(img_mag , 0 , 255)
+            img = self.__sobel_adative(img)
+            img = self.clahe.apply(img) # Histogram Equalization 
             augmented = self.transform(image=img, mask=mask)
             img = augmented['image']
             mask = augmented['mask']
-            #img = self.__min_max_convert(img)
-
+            img = cv2.cvtColor(img,cv2.COLOR_GRAY2RGB)
+            img = self.__min_max_convert(img)
 
             
         img = img.transpose(2, 0, 1)
@@ -104,6 +110,15 @@ class Dataset_min_max(torch.utils.data.Dataset):
         img = torch.Tensor(img)
         mask = torch.Tensor(mask)
         return img, mask 
+    
+    
+    def __sobel_adative(self , image:np.array)-> np.array:
+        dx = cv2.Sobel(image , cv2.CV_64F , 0 , 1 , ksize=3)
+        dy = cv2.Sobel(image , cv2.CV_64F , 1 , 0 , ksize=3)
+        img_mag = cv2.magnitude(dx , dy)
+        img_mag = cv2.normalize(img_mag , None , 0 ,255 ,cv2.NORM_MINMAX)
+        img_mag = np.uint8(img_mag)
+        return img_mag
     
     def __min_max_convert(self,image:np.array):
         h,w,c = image.shape

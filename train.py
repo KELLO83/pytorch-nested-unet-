@@ -38,27 +38,39 @@ def parse_args():
     parser.add_argument('--mean' , default=0.535, type=int , help='Dataset Average')
     parser.add_argument('--std' , default=0.153 , type=int , help='Dataset Standarad Divation')
     
-    #pretrained
-    parser.add_argument('--pretrained' , default='weight/Unet/CRACKTREE200/model.pt' , help='pretrain path')
+    # 필수
+    parser.add_argument('--pretrained' , default='weight/Unet/CRACKTREE200/CLAHE/model.pt' , help='pretrain path')
 
-    parser.add_argument('--name', default=None,
-                        help='model name: (default: arch+timestamp)')
-    parser.add_argument('--epochs', default=100, type=int, metavar='N',
+    parser.add_argument('--dataset', default='CRACKTREE200_INPUT', # 조정
+                        help='dataset name')
+    parser.add_argument('--img_ext', default='jpg', # 조정
+                        help='image file extension')
+    parser.add_argument('--lr', '--learning_rate', default=1e-2, type=float,
+                    metavar='LR', help='initial learning rate')
+    parser.add_argument('--save-dir',default='weight/Unet/CRACKTREE200/TEST',help='pytorch model save directory')
+    
+    parser.add_argument('--epochs', default=50, type=int, metavar='N',
                         help='number of total epochs to run')
     parser.add_argument('-b', '--batch_size', default=8, type=int,
                         metavar='N', help='mini-batch size (default: 16)')
-    parser.add_argument('--save-dir',default='weight/Unet/Anorm/CRACKTREE200',help='pytorch model save directory')
     
+    
+    #pretrained
+    parser.add_argument('--name', default=None,
+                        help='model name: (default: arch+timestamp)')
+
     # model
     parser.add_argument('--arch', '-a', metavar='ARCH', default='UNet',
                         choices=ARCH_NAMES,
                         help='model architecture: ' +
                         ' | '.join(ARCH_NAMES) +
                         ' (default: NestedUNet)')
+    parser.add_argument('--mask_ext', default='bmp',
+                    help='mask file extension')
     parser.add_argument('--deep_supervision', default=False, type=str2bool)
-    parser.add_argument('--input_channels', default=3, type=int,
-                        help='input channels')
     
+    parser.add_argument('--input_channels', default=3, type=int,
+                        help='input channels')   
     parser.add_argument('--num_classes', default=1, type=int,
                         help='number of classes')
     parser.add_argument('--input_w', default=512, type=int,
@@ -72,14 +84,6 @@ def parse_args():
                         help='loss: ' +
                         ' | '.join(LOSS_NAMES) +
                         ' (default: BCEDiceLoss)')
-    
-    # dataset
-    parser.add_argument('--dataset', default='CRACKTREE200_INPUT',
-                        help='dataset name')
-    parser.add_argument('--img_ext', default='jpg',
-                        help='image file extension')
-    parser.add_argument('--mask_ext', default='bmp',
-                        help='mask file extension')
 
     # optimizer
     parser.add_argument('--optimizer', default='Adam',
@@ -87,11 +91,9 @@ def parse_args():
                         help='loss: ' +
                         ' | '.join(['Adam', 'SGD']) +
                         ' (default: Adam)')
-    parser.add_argument('--lr', '--learning_rate', default=1e-2, type=float,
-                        metavar='LR', help='initial learning rate')
     parser.add_argument('--momentum', default=0.9, type=float,
                         help='momentum')
-    parser.add_argument('--weight_decay', default=1e-2, type=float,
+    parser.add_argument('--weight_decay', default=1e-3, type=float,
                         help='weight decay')
     parser.add_argument('--nesterov', default=False, type=str2bool,
                         help='nesterov')
@@ -99,10 +101,10 @@ def parse_args():
     # scheduler
     parser.add_argument('--scheduler', default='ReduceLROnPlateau',
                         choices=['CosineAnnealingLR', 'ReduceLROnPlateau', 'MultiStepLR', 'ConstantLR'])
-    parser.add_argument('--min_lr', default=1e-12, type=float,
+    parser.add_argument('--min_lr', default=1e-8, type=float,
                         help='minimum learning rate')
     parser.add_argument('--factor', default=0.1, type=float)
-    parser.add_argument('--patience', default=10, type=int)
+    parser.add_argument('--patience', default=15, type=int)
     parser.add_argument('--milestones', default='1,2', type=str)
     parser.add_argument('--gamma', default=2/3, type=float)
     parser.add_argument('--early_stopping', default=-1, type=int,
@@ -239,19 +241,22 @@ def main():
     model = archs.UNet(num_classes=1 , input_channels=3 )
     
     if config['pretrained']:
-        print("=================pretrained call================")
+        print("================= pretrained model call ================")
         w_call = torch.load(config['pretrained'])
-        # print("pretrained call :",w_call)
         model.load_state_dict(w_call['model'].state_dict())
-        # optimizer.load_state_dict(w_call['optimizer'])
-        # print("Learing Rate {%e}:".format(optimizer.param_groups[-1]['lr']))
-
 
     device = torch.device('cuda:0' if torch.cuda.is_available else 'cpu')
     model = model.to(device)
 
     params = filter(lambda p: p.requires_grad, model.parameters())
     
+    
+    # if config['pretrained']:
+    #     print("================= pretrained optimizer call ================")
+    #     optimizer = optim.Adam(params , lr =config['lr'] , weight_decay=config['weight_decay'] )
+    #     optimizer.load_state_dict(w_call['optimizer'])
+    #     print("Learing Rate {:5e}:".format(optimizer.param_groups[-1]['lr']))
+
     if config['optimizer'] == 'Adam':
         optimizer = optim.Adam(
             params, lr=config['lr'], weight_decay=config['weight_decay'])

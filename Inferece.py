@@ -26,7 +26,7 @@ import numpy as np
 def parse_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--name', default='weight/Unet/Anorm/CRACKTREE200/model.pt',
+    parser.add_argument('--name', default='weight/Unet/CRACKTREE200/CLAHE/model.pt',
                         help='model name')
     parser.add_argument('--image-path' , default='CRACKLS315_INPUT', help="test data image path")
     parser.add_argument('--image-extension' , default='jpg' , help="image extension")
@@ -42,11 +42,14 @@ def main():
     model = archs.__dict__['UNet'](num_classes=1, input_channels=3, deep_supervision=False)
     model = model.cuda()
 
-
-    img_ids = glob(os.path.join('inputs', args.image_path, 'images', '*' + args.image_extension))
-    img_ids = [os.path.splitext(os.path.basename(p))[0] for p in img_ids]
-
-    _ , val_img_ids = train_test_split(img_ids, test_size=0.3, random_state=41)
+    while True:
+        img_ids = glob(os.path.join('inputs', args.image_path, 'images', '*' + args.image_extension))
+        img_ids = [os.path.splitext(os.path.basename(p))[0] for p in img_ids]
+        if img_ids:
+            break
+        args.image_extension = 'png'
+        
+    _ , val_img_ids = train_test_split(img_ids, test_size=0.5, random_state=41)
     
 
     w_call = torch.load(args.name)
