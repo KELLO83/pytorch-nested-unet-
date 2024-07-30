@@ -39,17 +39,17 @@ def parse_args():
     parser.add_argument('--std' , default=0.153 , type=int , help='Dataset Standarad Divation')
     
     # 필수
-    parser.add_argument('--pretrained' , default='weight/Unet/CRACKTREE200/CLAHE/model.pt' , help='pretrain path')
+    parser.add_argument('--pretrained' , default='weight/AttentionResUnet/CRACKTREE260/model.pt' , help='pretrain path')
 
-    parser.add_argument('--dataset', default='CRACKTREE200_INPUT', # 조정
+    parser.add_argument('--dataset', default='CRACKTREE260_INPUT', # 조정
                         help='dataset name')
     parser.add_argument('--img_ext', default='jpg', # 조정
                         help='image file extension')
     parser.add_argument('--lr', '--learning_rate', default=1e-2, type=float,
                     metavar='LR', help='initial learning rate')
-    parser.add_argument('--save-dir',default='weight/Unet/CRACKTREE200/TEST',help='pytorch model save directory')
+    parser.add_argument('--save-dir',default='weight/AttentionResUnet/CRACKTREE260',help='pytorch model save directory')
     
-    parser.add_argument('--epochs', default=50, type=int, metavar='N',
+    parser.add_argument('--epochs', default=200, type=int, metavar='N',
                         help='number of total epochs to run')
     parser.add_argument('-b', '--batch_size', default=8, type=int,
                         metavar='N', help='mini-batch size (default: 16)')
@@ -60,11 +60,12 @@ def parse_args():
                         help='model name: (default: arch+timestamp)')
 
     # model
-    parser.add_argument('--arch', '-a', metavar='ARCH', default='UNet',
+    parser.add_argument('--arch', '-a', metavar='ARCH', default='AttentionResUNet',
                         choices=ARCH_NAMES,
                         help='model architecture: ' +
                         ' | '.join(ARCH_NAMES) +
                         ' (default: NestedUNet)')
+    
     parser.add_argument('--mask_ext', default='bmp',
                     help='mask file extension')
     parser.add_argument('--deep_supervision', default=False, type=str2bool)
@@ -236,9 +237,7 @@ def main():
 
     # create model
     print("=> creating model %s" % config['arch'])
-    # model = archs.__dict__[config['arch']](config['num_classes'],
-    #                                        config['input_channels'])
-    model = archs.UNet(num_classes=1 , input_channels=3 )
+    model = archs.AttentionResUNet(in_channels=3 , out_channels=1)
     
     if config['pretrained']:
         print("================= pretrained model call ================")

@@ -23,12 +23,13 @@ import copy
 import random
 import numpy as np
 
+ARCH_NAMES = archs.__all__
 def parse_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--name', default='weight/Unet/CRACKTREE200/CLAHE/model.pt',
+    parser.add_argument('--name', default='weight/AttentionResUnet/CRACKTREE260/model.pt',
                         help='model name')
-    parser.add_argument('--image-path' , default='CRACKLS315_INPUT', help="test data image path")
+    parser.add_argument('--image-path' , default='CRACKTREE260_INPUT', help="test data image path")
     parser.add_argument('--image-extension' , default='jpg' , help="image extension")
     parser.add_argument('--mask-extension' , default='bmp',help='mask extension')
     args = parser.parse_args()
@@ -39,7 +40,7 @@ def parse_args():
 def main(): 
     args = parse_args()
 
-    model = archs.__dict__['UNet'](num_classes=1, input_channels=3, deep_supervision=False)
+    model = archs.AttentionResUNet(in_channels=3,out_channels=1)
     model = model.cuda()
 
     while True:
@@ -49,7 +50,7 @@ def main():
             break
         args.image_extension = 'png'
         
-    _ , val_img_ids = train_test_split(img_ids, test_size=0.5, random_state=41)
+    _ , val_img_ids = train_test_split(img_ids, test_size=0.8, random_state=41)
     
 
     w_call = torch.load(args.name)
@@ -73,14 +74,6 @@ def main():
         num_classes=1,
         transform=train_transform)
 
-    
-    # it_dataset = iter(val_dataset)
-    # try:
-    #     while True:
-    #         image , mask = next(it_dataset)
-    # except StopIteration:
-    #     print("Stop Iteration")
-    
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
         batch_size=1,

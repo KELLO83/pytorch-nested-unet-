@@ -1,5 +1,5 @@
-from archs import NestedUNet
+from archs import *
 import torchinfo
 
-model = NestedUNet(num_classes=1)
+model = AttentionResUNet(in_channels=3 , out_channels=1)
 torchinfo.summary(model , input_size=(1,3,512,512))

@@ -68,9 +68,9 @@ class Dataset_min_max(torch.utils.data.Dataset):
             A.RandomCrop(height=512,width=512),
             A.Normalize( mean=[0.535]*3 ,std=[0.153]*3 )
         ])
-        
         self.scaled = MinMaxScaler()
         self.clahe = cv2.createCLAHE(clipLimit=2.0 , tileGridSize=(8,8))
+        
     def __len__(self):
         return len(self.img_ids)
 
@@ -105,16 +105,7 @@ class Dataset_min_max(torch.utils.data.Dataset):
         img = torch.Tensor(img)
         mask = torch.Tensor(mask)
         return img, mask 
-    
-    
-    def __sobel_adative(self , image:np.array)-> np.array:
-        dx = cv2.Sobel(image , cv2.CV_64F , 0 , 1 , ksize=3)
-        dy = cv2.Sobel(image , cv2.CV_64F , 1 , 0 , ksize=3)
-        img_mag = cv2.magnitude(dx , dy)
-        img_mag = cv2.normalize(img_mag , None , 0 ,255 ,cv2.NORM_MINMAX)
-        img_mag = np.uint8(img_mag)
-        return img_mag
-    
+        
     def __min_max_convert(self,image:np.array):
         h,w,c = image.shape
         
@@ -124,6 +115,7 @@ class Dataset_min_max(torch.utils.data.Dataset):
         image_scaled = image_scaled.reshape(h,w,c)
         
         return image_scaled
+
 
 class CustomDataset(torch.utils.data.Dataset):
     def __init__(self , img_ids , img_dir , mask_dir , img_ext , mask_ext , num_classes ):
@@ -155,7 +147,7 @@ class CustomDataset(torch.utils.data.Dataset):
         
         
         
-    def __resize_and_pad(self , image : Image , size=(512, 512)):
+    def __resize_and_pad(self , image : Image , size=(512, 512)): # 360 640 640 640 -> 
         
         image = np.array(image)
         
