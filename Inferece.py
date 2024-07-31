@@ -22,12 +22,12 @@ from metrics import dice_coef
 import copy
 import random
 import numpy as np
-
+from attUNet import AttentionUNet
 ARCH_NAMES = archs.__all__
 def parse_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--name', default='weight/AttentionResUnet/CRACKTREE260/model.pt',
+    parser.add_argument('--name', default='weight/AttentionUnet/CRACKTREE260/model.pt',
                         help='model name')
     parser.add_argument('--image-path' , default='CRACKTREE260_INPUT', help="test data image path")
     parser.add_argument('--image-extension' , default='jpg' , help="image extension")
@@ -40,7 +40,7 @@ def parse_args():
 def main(): 
     args = parse_args()
 
-    model = archs.AttentionResUNet(in_channels=3,out_channels=1)
+    model = AttentionUNet(in_channels=3,out_channels=1)
     model = model.cuda()
 
     while True:
@@ -50,7 +50,7 @@ def main():
             break
         args.image_extension = 'png'
         
-    _ , val_img_ids = train_test_split(img_ids, test_size=0.8, random_state=41)
+    _ , val_img_ids = train_test_split(img_ids, test_size=0.5, random_state=41)
     
 
     w_call = torch.load(args.name)

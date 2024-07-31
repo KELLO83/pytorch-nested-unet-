@@ -115,8 +115,9 @@ class Dataset_min_max(torch.utils.data.Dataset):
         image_scaled = image_scaled.reshape(h,w,c)
         
         return image_scaled
+    
 
-
+        
 class CustomDataset(torch.utils.data.Dataset):
     def __init__(self , img_ids , img_dir , mask_dir , img_ext , mask_ext , num_classes ):
         super(CustomDataset , self).__init__()

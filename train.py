@@ -25,7 +25,7 @@ from utils import AverageMeter, str2bool
 from dataset import Dataset , CustomDataset ,Dataset_min_max
 from torch.utils.tensorboard import SummaryWriter
 from copy import deepcopy
-
+from attUNet import AttentionUNet
 ARCH_NAMES = archs.__all__
 LOSS_NAMES = losses.__all__
 LOSS_NAMES.append('BCEWithLogitsLoss')
@@ -39,17 +39,18 @@ def parse_args():
     parser.add_argument('--std' , default=0.153 , type=int , help='Dataset Standarad Divation')
     
     # 필수
-    parser.add_argument('--pretrained' , default='weight/AttentionResUnet/CRACKTREE260/model.pt' , help='pretrain path')
+    parser.add_argument('--pretrained' , default='weight/AttentionUnet/CRACKTREE260/model.pt' , help='pretrain path')
 
     parser.add_argument('--dataset', default='CRACKTREE260_INPUT', # 조정
                         help='dataset name')
     parser.add_argument('--img_ext', default='jpg', # 조정
                         help='image file extension')
-    parser.add_argument('--lr', '--learning_rate', default=1e-2, type=float,
+    parser.add_argument('--lr', '--learning_rate', default=1e-5, type=float
+                        ,
                     metavar='LR', help='initial learning rate')
-    parser.add_argument('--save-dir',default='weight/AttentionResUnet/CRACKTREE260',help='pytorch model save directory')
+    parser.add_argument('--save-dir',default='weight/AttentionUnet/CRACKTREE260',help='pytorch model save directory')
     
-    parser.add_argument('--epochs', default=200, type=int, metavar='N',
+    parser.add_argument('--epochs', default=50, type=int, metavar='N',
                         help='number of total epochs to run')
     parser.add_argument('-b', '--batch_size', default=8, type=int,
                         metavar='N', help='mini-batch size (default: 16)')
@@ -237,8 +238,8 @@ def main():
 
     # create model
     print("=> creating model %s" % config['arch'])
-    model = archs.AttentionResUNet(in_channels=3 , out_channels=1)
-    
+    #model = archs.AttentionResUNet(in_channels=3 , out_channels=1)
+    model = AttentionUNet(in_channels= 3 ,out_channels= 1)
     if config['pretrained']:
         print("================= pretrained model call ================")
         w_call = torch.load(config['pretrained'])
@@ -364,6 +365,7 @@ def main():
 
     best_iou = 0
     trigger = 0
+    ckpt = None
     for epoch in range(config['epochs']):
         print('Epoch [%d/%d]' % (epoch, config['epochs']))
 
@@ -422,8 +424,11 @@ def main():
         if config['early_stopping'] >= 0 and trigger >= config['early_stopping']:
             print("=> early stopping")
             break
-
+        
         torch.cuda.empty_cache()
+        
+    torch.save(ckpt,'%s/last_model.pt'% config['save_dir'])
+    
 
 import cv2
 import numpy as np
