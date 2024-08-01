@@ -116,8 +116,7 @@
 | Params size (MB) |  | 31.41 |
 | Estimated Total Size (MB) |  | 1060.06 |
 
-![Untitled](notion_image
-/Untitled.png)
+![Untitled](notion_image/Untitled.png)
 
 **마지막 분류 layer의 출력 shape 1 1 512 512      [batch_size , chaneel , height , width ] 입니다**               
 
@@ -628,8 +627,7 @@ CRACK TREE
 
 CRKWH 100
 
-![스크린샷 2024-07-26 12-32-42.png](notion_image
-/%25EC%258A%25A4%25ED%2581%25AC%25EB%25A6%25B0%25EC%2583%25B7_2024-07-26_12-32-42.png)
+![스크린샷 2024-07-26 12-32-42.png](notion_image/%25EC%258A%25A4%25ED%2581%25AC%25EB%25A6%25B0%25EC%2583%25B7_2024-07-26_12-32-42.png)
 
 CRACKLS315
 
