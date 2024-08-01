@@ -19,7 +19,7 @@ logs
 models/*
 inputs/*
 outputs/*
-
+!notion_image/*
 /data
 # Byte-compiled / optimized / DLL files
 __pycache__/
