@@ -160,21 +160,17 @@
 
 `torch.utils.data.Dataset`을 이용하여 이미지와 마스크에 대해 동일한 데이터 증강을 적용하고, 이미지 값의 범위를 0~255 → 0~1 범위로 재조정합니다.
 
-![Untitled](notion_image
-/Untitled%201.png)
+![Untitled](notion_image/Untitled%201.png)
 
-![Untitled](notion_image
-/Untitled%202.png)
+![Untitled](notion_image/Untitled%202.png)
 
 albumentations 라이브러리의 `RandomRotate90` 및 `Flip` 함수를 이용하여 데이터 증강을 수행하였습니다.
 
 일부 데이터셋은 `mean=0.5`, `std=0.135`를 이용하여 추가적인 이미지 정규화 과정을 수행하였습니다.
 
-![Untitled](notion_image
-/Untitled%203.png)
+![Untitled](notion_image/Untitled%203.png)
 
-![Untitled](notion_image
-/Untitled%204.png)
+![Untitled](notion_image/Untitled%204.png)
 
 추가시도: CrackTree260 데이터셋은 800 x 600 및 960 x 720 이미지들로 구성되어 있습니다. CRKWH100과 CRACKLS315 데이터셋은 512 x 512 이미지로 구성되어 있어, 세 가지 데이터셋에 동일한 모델을 적용하려면 동일한 이미지 크기로 재구성할 필요가 있습니다. 따라서 CrackTree260 데이터셋의 이미지를 512 x 512 크기로 변경하기 위해 **A.Resize(512, 512)**를 사용하여 이미지 크기를 줄였습니다. 그러나 손실율(BCEDiceLoss)이 0.35 ~ 0.4에서 개선되지 않는 모습을 확인하였습니다. 이에 따라, 이미지의 전체 크기를 줄이는 대신 일부만 **A.RandomCrop(512)** 512 x 512 크기로 잘라내어 훈련을 진행하니 손실율이 0.25 ~ 0.3까지 개선되는 부분을 확인할 수 있었습니다. 이를 통해 Crack 탐지와 같은 중요한 이미지의 경우, 비율적으로 이미지를 줄이는 것보다 원본 이미지의 픽셀을 그대로 보존하면서 일부분을 잘라내는 것이 학습에 더 효과적입니다
 
@@ -182,11 +178,9 @@ albumentations 라이브러리의 `RandomRotate90` 및 `Flip` 함수를 이용�
 
 [바이너리 출력을 이용한 크랙 세그멘테이션 방법](https://www.notion.so/3395d3198b744928ac72985be0ab8054?pvs=21) 
 
-![pad_image.jpg](notion_image
-/pad_image.jpg)
+![pad_image.jpg](notion_image/pad_image.jpg)
 
-![pd_mask.png](notion_image
-/pd_mask.png)
+![pd_mask.png](notion_image/pd_mask.png)
 
 ```python
 class Dataset_min_max(torch.utils.data.Dataset):
@@ -437,8 +431,7 @@ UNet 기본 클래스는 4번의 수축 과정과 4번의 확장 과정으로 �
 
 → Deep_Supervison을 이용할시 Unet모델이 아닌 Unet++ 모델로써 다른 모델입니다
 
-![Untitled](notion_image
-/Untitled%205.png)
+![Untitled](notion_image/Untitled%205.png)
 
 # **추론 및 평가**
 
@@ -579,18 +572,15 @@ $$
 
 CrackTree260 Tensorboard 
 
-![Untitled](notion_image
-/Untitled%206.png)
+![Untitled](notion_image/Untitled%206.png)
 
 초기 손실율은 1에서 시작하여 0.35까지 감소하는 현상을 볼수있으나 이후 개선이되지않는 학습정체를 볼수있습니다 
 
 추가시도 : Attention Unet 모델 손실율이 0.17까지 감소하였습니다
 
-![Untitled](notion_image
-/Untitled%207.png)
+![Untitled](notion_image/Untitled%207.png)
 
-![Untitled](notion_image
-/Untitled%208.png)
+![Untitled](notion_image/Untitled%208.png)
 
 > 3가지의 데이터셋을 가지고 훈련을 진행하였으며, CrackTree260 데이터셋은 추가적인 전처리 과정을 통해 성능 향상을 관측하였습니다. CrackTree260과 CRKWH100 데이터셋은 서로 다른 데이터셋의 성능을 추가적으로 검증하였습니다.
 > 
@@ -600,51 +590,41 @@ CrackTree260 Tensorboard
 
 ## CRACKTREE260
 
-![Untitled](notion_image
-/Untitled%209.png)
+![Untitled](notion_image/Untitled%209.png)
 
-![Untitled](notion_image
-/Untitled%2010.png)
+![Untitled](notion_image/Untitled%2010.png)
 
 CRACKTREE → CRKWH100
 
-![Untitled](notion_image
-/Untitled%2011.png)
+![Untitled](notion_image/Untitled%2011.png)
 
 CRACKTREE - > CRACKLS315
 
-![Untitled](notion_image
-/Untitled%2012.png)
+![Untitled](notion_image/Untitled%2012.png)
 
 ## CRACKTree260 Norm 수행 Mean 0.5 std 0.135
 
-![Untitled](notion_image
-/Untitled%2013.png)
+![Untitled](notion_image/Untitled%2013.png)
 
-![Untitled](notion_image
-/Untitled%2014.png)
+![Untitled](notion_image/Untitled%2014.png)
 
 CRACKTREE → CRKWH 100
 
-![Untitled](notion_image
-/Untitled%2015.png)
+![Untitled](notion_image/Untitled%2015.png)
 
 CRACKTREE → CRACKLS315
 
-![Untitled](notion_image
-/Untitled%2016.png)
+![Untitled](notion_image/Untitled%2016.png)
 
 ## 평활화 CLAHE(Contrast Limited Adaptive Histogram Equalization) 수행
 
 히스토그램 평활화를 통해 명암대비를 개선하였습니다. CLAHE는 이미지의 명암대비를 국부적으로 개선하여 세부 사항을 더 잘 보이게 하는 방법입니다. 이를 통해 전체적으로 이미지의 디테일을 향상시키며, 특히 조명 조건이 균일하지 않은 이미지에서 유용하게 사용됩니다.
 
-![Untitled](notion_image
-/Untitled%2017.png)
+![Untitled](notion_image/Untitled%2017.png)
 
 CRACK TREE
 
-![Untitled](notion_image
-/Untitled%2018.png)
+![Untitled](notion_image/Untitled%2018.png)
 
 CRKWH 100
 
@@ -653,31 +633,24 @@ CRKWH 100
 
 CRACKLS315
 
-![Untitled](notion_image
-/Untitled%2019.png)
+![Untitled](notion_image/Untitled%2019.png)
 
 ## **CRKWH100**
 
-![Untitled](notion_image
-/Untitled%2020.png)
+![Untitled](notion_image/Untitled%2020.png)
 
-![Untitled](notion_image
-/Untitled%2021.png)
+![Untitled](notion_image/Untitled%2021.png)
 
 CRKWH100 → CRACKTREE
 
-![Untitled](notion_image
-/Untitled%2022.png)
+![Untitled](notion_image/Untitled%2022.png)
 
 CRKWH100 → CRACKLS315
 
-![Untitled](notion_image
-/Untitled%2023.png)
+![Untitled](notion_image/Untitled%2023.png)
 
 ## **CRACKLS315**
 
-![Untitled](notion_image
-/Untitled%2024.png)
+![Untitled](notion_image/Untitled%2024.png)
 
-![Untitled](notion_image
-/Untitled%2025.png)
+![Untitled](notion_image/Untitled%2025.png)
